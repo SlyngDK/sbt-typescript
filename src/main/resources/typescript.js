@@ -64,7 +64,7 @@
                 compileDone();
             } else {
                 try {
-                    var errLineNum = parseInt(stdout.match('\\(([0-9])\,')[1]);
+                    var errLineNum = parseInt(stdout.match('([0-9])\,')[1]);
                     var errLine;
 
                     var lineNum = 1;
