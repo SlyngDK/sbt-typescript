@@ -18,15 +18,41 @@
     var sourceFileMappings = JSON.parse(args[SOURCE_FILE_MAPPINGS_ARG]);
     var target = args[TARGET_ARG];
     var options = JSON.parse(args[OPTIONS_ARG]);
+    var sourceRoot = sourceFileMappings[0][0].slice(0, sourceFileMappings[0][1].length * -1);
 
-    var sourcesToProcess = sourceFileMappings.length;
     var results = [];
     var problems = [];
 
-    function compileDone() {
-        if (--sourcesToProcess === 0) {
-            console.log("\u0010" + JSON.stringify({results: results, problems: problems}));
+    var logFile = target + "/compile.log";
+
+    function log(text) {
+        fs.appendFile(logFile, text + "\n", function (err) {
+            if (err) {
+                console.log("Error appending to log file '" + logFile + "': " + err);
+            }
+        });
+    }
+
+    function log_debug(text) {
+        if (options.debug) {
+            console.log(text);
         }
+        if (typeof text === 'string' || text instanceof String)
+            log(text);
+        else
+            log(JSON.stringify(text))
+    }
+
+    try {
+        if (fs.existsSync(logFile))
+            fs.unlinkSync(logFile);
+    } catch (e) {
+    }
+
+    function compileDone() {
+        log_debug({results: results, problems: problems})
+        // log(JSON.stringify({results: results, problems: problems}));
+        console.log("\u0010" + JSON.stringify({results: results, problems: problems}));
     }
 
     function throwIfErr(e) {
@@ -60,47 +86,49 @@
         }
     }
 
-    var logFile = target + "/compile.log";
-
     if (!fs.existsSync(target)) {
         mkdirSync_p(target, '0755');
     }
-
-    if (fs.existsSync(logFile))
-        fs.unlinkSync(logFile);
-
-    function log(text) {
-        fs.appendFile(logFile, text + "\n", function (err) {
-            if (err) {
-                console.log("Error appending to log file '" + logFile + "': " + err);
-            }
-        });
-    }
-
-
     sourceFileMappings.forEach(function (sourceFileMapping) {
-
         var input = sourceFileMapping[0];
         var outputFile = sourceFileMapping[1].replace(".ts", ".js");
         var output = path.join(target, outputFile);
         var outputDir = path.dirname(path.join(target, outputFile));
         var sourceMapOutput = output + ".map";
 
-        var cmd_args = " ";
-        if (options.sourceMap)
-            cmd_args += "--sourceMap ";
+        log_debug({
+            input: input
+            , outputFile: outputFile
+            , outputDir: outputDir
+            , output: output
+            , sourceMapOutput: sourceMapOutput
+        });
 
-        if (options.noEmitOnError)
-            cmd_args += "--noEmitOnError ";
 
         var cmd = "tsc";
         if (options.tscPath !== "") {
             cmd = options.tscPath;
         }
 
-        cmd += " " + cmd_args + " --outDir " + outputDir + " " + input;
+        cmd += " --module " + options.module;
+        cmd += " --target " + options.target;
+        cmd += " --moduleResolution " + options.moduleResolution;
+        if (options.experimentalDecorators) {
+            cmd += " --experimentalDecorators";
+        }
+        if (options.sourceMap) {
+            cmd += " --sourceMap";
+        }
+        if (options.emitDecoratorMetadata) {
+            cmd += " --emitDecoratorMetadata";
+        }
+        if (options.noEmitOnError) {
+            cmd += " --noEmitOnError";
+        }
 
-        log("Command:" + cmd);
+        cmd += " --outDir " + target + " --rootDir " + sourceRoot + " " + input;
+
+        log_debug("Command:" + cmd);
 
         exec(cmd, function (error, stdout, stderr) {
             if (error == null) {
@@ -114,9 +142,32 @@
                 compileDone();
             } else {
                 try {
-                    log(error);
-                    log(stdout);
-                    log(stderr);
+                    log("Error:" + error);
+                    log("Stdout:" + stdout);
+                    log("Stderr:" + stderr);
+
+                    // Start Hack ignore errors on compile in node_modules/
+                    var errorOnlyInNodeModules = true;
+                    stdout.split('\n').forEach(function (line) {
+                        if (line.lastIndexOf("node_modules", 0) === 0) {
+
+                        } else {
+                            if (line !== "")
+                                errorOnlyInNodeModules = false;
+                        }
+                    });
+                    if (errorOnlyInNodeModules) {
+                        results.push({
+                            source: input,
+                            result: {
+                                filesRead: [input],
+                                filesWritten: options.sourceMap ? [output, sourceMapOutput] : [output]
+                            }
+                        });
+                        compileDone();
+                        return;
+                    }
+                    // End Hack
 
                     var errLineNum = parseInt(stdout.match('([0-9])\,')[1]);
                     var errLine;
@@ -132,11 +183,12 @@
                         message: stdout,
                         severity: "error",
                         lineNumber: errLineNum,
-                        characterOffset: parseInt(stdout.match('\,([0-9])\\)')[1]),
+                        characterOffset: parseInt(stdout.match('\,([0-9]+)\\)')[1]),
                         lineContent: errLine,
                         source: input
                     });
                 } catch (e) {
+                    log(e);
                     problems.push({
                         message: stderr,
                         severity: "error"

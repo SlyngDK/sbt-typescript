@@ -27,6 +27,21 @@ To change an option change the values on dk.slyng.sbt.Import.TypescriptKeys, in 
 All *.ts will be compiled, *.d.ts is excluded.
 
 
+Working with Angular 2
 ------------------------------------
 
-Feel free to used and contribute.
+Add to build.sbt
+```sbt
+TypescriptKeys.debug := false
+TypescriptKeys.target := Target.ES5
+TypescriptKeys.module := Module.system
+TypescriptKeys.experimentalDecorators := true
+TypescriptKeys.moduleResolution := ModuleResolution.node
+TypescriptKeys.sourceMap := true
+TypescriptKeys.emitDecoratorMetadata := true
+```
+
+Add typescript into app/assets/typescript.
+
+------------------------------------
+Feel free to use and contribute.
