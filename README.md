@@ -1,18 +1,11 @@
 # sbt-typescript
 Typescript asset compiler, using the tsc command.
 
-To use this plugin, checkout the sources and publishLocal using sbt.
-
-```bash
-git clone https://github.com/SlyngDK/sbt-typescript.git
-cd sbt-typescript
-sbt publishLocal
-```
-
-After that use the addSbtPlugin command within your project's plugins.sbt
+To use this plugin, add this to plugins.sbt
 
 ```scala
-addSbtPlugin("dk.slyng.sbt" % "sbt-typescript" % "0.1-SNAPSHOT")
+resolvers += Resolver.url("SlyngDK snapshots", url("http://SlyngDK.github.com/snapshots/"))(Resolver.ivyStylePatterns)
+addSbtPlugin("dk.slyng.sbt" % "sbt-typescript" % "0.2-SNAPSHOT")
 ```
 
 You will also need to enable the SbtWeb plugin in your project.
@@ -21,6 +14,13 @@ Option              | Description
 --------------------|------------
 tscPath             | Path to the tsc command.
 sourceMap           | Generates source maps for input files.
+noEmitOnError	| Do not emit outputs if any type checking errors were reported.
+debug	| Enable debug output.
+experimentalDecorators	| Enables experimental support for ES7 decorators.
+emitDecoratorMetadata	|
+module	| Specify module code generation.
+target	| Specify ECMAScript target version.
+moduleResolution	| Specifies module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6).
 
 To change an option change the values on dk.slyng.sbt.Import.TypescriptKeys, in build.sbt.
 
